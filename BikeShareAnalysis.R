@@ -1,6 +1,7 @@
 library(tidyverse)
 library(vroom)
 library(tidymodels)
+library(poissonreg)
 rawdata <- vroom("KaggleBikeShare/train.csv")
 cleandata <- rawdata %>% 
   filter(weather != 4) %>% 
@@ -25,15 +26,30 @@ myNewData<-vroom("KaggleBikeShare/test.csv")
 bike_predictions <- predict(bike_workflow,
                             new_data=myNewData) # Use fit to predict
 
+## poisson
+
+pois_mod <- poisson_reg() %>% #Type of model3
+  set_engine("glm") # GLM = generalized linear model
+
+bike_pois_workflow <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(pois_mod) %>%
+  fit(data = featuredata) # Fit the workflow
+
+myNewData<-vroom("KaggleBikeShare/test.csv")
+
+bike_predictions <- predict(bike_pois_workflow,
+                            new_data=myNewData)
+
 roundto0 <- function(x){
-  if(x <0)
+  if(x < 0)
     x <- 0
   else
     x <- x
 }
 
 final<-bike_predictions %>% 
-  mutate(datetime = myNewData$datetime) %>% 
+  mutate(datetime = as.character(format(myNewData$datetime))) %>% 
   mutate(count = map(.pred,roundto0)) %>% 
   mutate(count = as.numeric(count)) %>% 
   select(datetime,count)
